@@ -77,37 +77,40 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 n_epochs = 10
 valid_loss_min = np.inf
 
-# keeps track of all the chain - ruling --> we r training, so we need to keep track
-model.train() 
-# for our x's and y's in our data, do this stuff after
-for data, target in train_loader:
-    optimizer.zero_grad()
-    # forward probagation, inputing some data x
-    output = model(data)
-    # loss function
-    loss = criterion(output, target)
-    # back probagation, built into nn.Module, covers all the calculus for us
-    loss.backward()
-    optimizer.step()
-    train_loss += loss.item() * data.size(0)
+for epoch in range(n_epochs):
+    # keeps track of all the chain - ruling --> we r training, so we need to keep track
+    train_loss = 0.0
+    valid_loss = 0.0
+    model.train()
+    # for our x's and y's in our data, do this stuff after
+    for data, target in train_loader:
+        optimizer.zero_grad()
+        # forward probagation, inputing some data x
+        output = model(data)
+        # loss function
+        loss = criterion(output, target)
+        # back probagation, built into nn.Module, covers all the calculus for us
+        loss.backward()
+        optimizer.step()
+        train_loss += loss.item() * data.size(0)
 
-# now we are evaluating, we are only looking for how much the loss function is, and we are not back probagating, so we don't need model.train()
-model.eval() 
-# for our x's and y's in our data, do this stuff after
-for data, target in valid_loader:
-    output = model(data)
-    # loss function
-    loss = criterion(output, target)
-    valid_loss += loss.item() * data.size(0)
+    # now we are evaluating, we are only looking for how much the loss function is, and we are not back probagating, so we don't need model.train()
+    model.eval()
+    # for our x's and y's in our data, do this stuff after
+    for data, target in valid_loader:
+        output = model(data)
+        # loss function
+        loss = criterion(output, target)
+        valid_loss += loss.item() * data.size(0)
 
-train_loss = train_loss / len(train_loader.sampler)
-valid_loss = valid_loss / len(valid_loader.sampler)
+    train_loss = train_loss / len(train_loader.sampler)
+    valid_loss = valid_loss / len(valid_loader.sampler)
 
-print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f}'.format(
-    epoch + 1,
-    train_loss,
-    valid_loss
-))
+    print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f}'.format(
+        epoch + 1,
+        train_loss,
+        valid_loss
+    ))
 
 # MODEL TESTING
 model.eval()
