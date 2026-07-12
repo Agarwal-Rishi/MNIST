@@ -38,17 +38,21 @@ test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size,
 # grab a batch of data from the sets
 dataiter = iter(train_loader)
 images, labels = next(dataiter)
+# keep the tensor form for feeding the model, and a numpy copy for plotting
+images_tensor = images
 images = images.numpy()
 
 # defining the class and layers; one input layer, 2 hidden layers, an output layer, and a dropout layer do prevent dependency on the previous layer
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        hidden_1 = 512
-        hidden_2 = 512
+        hidden_1 = 1024
+        hidden_2 = 1024
+        hidden_3 = 1024
         self.fc1 = nn.Linear(28 * 28, hidden_1)
         self.fc2 = nn.Linear(hidden_1, hidden_2)
-        self.fc3 = nn.Linear(hidden_2, 10)
+        self.fc3 = nn.Linear(hidden_2, hidden_3)
+        self.fc4 = nn.Linear(hidden_2, 10)
         self.dropout = nn.Dropout(0.5)
 
     # forward probagation
@@ -62,9 +66,14 @@ class Net(nn.Module):
         # add hidden layer, with relu activation function
         x = F.relu(self.fc2(x))
         # add dropout layer
+
+        x = self.dropout(x)
+
+        x = F.relu(self.fc3(x))
+
         x = self.dropout(x)
         # add output layer
-        x = self.fc3(x)
+        x = self.fc4(x)
         return x
         
 # initialize the NN
@@ -74,7 +83,7 @@ print(model)
 # set up loss and optimizer functions, as well as initializing the number of epochs and another var
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-n_epochs = 10
+n_epochs = 20
 valid_loss_min = np.inf
 
 for epoch in range(n_epochs):
@@ -82,7 +91,7 @@ for epoch in range(n_epochs):
     train_loss = 0.0
     valid_loss = 0.0
     model.train()
-    # for our x's and y's in our data, do this stuff after
+    # for our x's and y's in our data, do this stuff
     for data, target in train_loader:
         optimizer.zero_grad()
         # forward probagation, inputing some data x
@@ -96,7 +105,7 @@ for epoch in range(n_epochs):
 
     # now we are evaluating, we are only looking for how much the loss function is, and we are not back probagating, so we don't need model.train()
     model.eval()
-    # for our x's and y's in our data, do this stuff after
+    # for our x's and y's in our data, do this stuff
     for data, target in valid_loader:
         output = model(data)
         # loss function
@@ -114,7 +123,10 @@ for epoch in range(n_epochs):
 
 # MODEL TESTING
 model.eval()
-
+test_loss = 0
+test_loss = test_loss/len(test_loader.sampler)
+class_correct = {i: 0 for i in range(10)}
+class_total = {i: 0 for i in range(10)}
 # for our x's and y's in the test set, do this stuff
 for data, target in test_loader:
     # forward probagation
@@ -126,18 +138,29 @@ for data, target in test_loader:
     _, pred = torch.max(output, 1)
     correct = np.squeeze(pred.eq(target.data.view_as(pred)))
 
+
+
     for i in range(len(target)):
-        label = target.data[i]
+        label = target.data[i].item()
         class_correct[label] += correct[i].item()
         class_total[label] += 1
 # calculate and print avg test loss
-test_loss = test_loss/len(test_loader.sampler)
+
+
 print('Test Loss: {:.6f}\n'.format(test_loss))
+
+accuracy = sum(class_correct.values()) / len(test_loader.sampler)
+print('Accuracy: {:.6f}\n'.format(accuracy))
+
+# get model predictions for the batch of images we're about to plot
+model.eval()
+output = model(images_tensor)
+_, preds = torch.max(output, 1)
 
 # rendering the pixels
 fig = plt.figure(figsize=(25, 4))
 for i in np.arange(20):
-    ax = fig.add_subplot(2, 20/2, i+1, xticks=[], yticks=[])
+    ax = fig.add_subplot(2, 20 // 2, i+1, xticks=[], yticks=[])
     ax.imshow(np.squeeze(images[i]), cmap='gray')
     ax.set_title("{} ({})".format(str(preds[i].item()), str(labels[i].item())),
                 color=("green" if preds[i]==labels[i] else "red"))
