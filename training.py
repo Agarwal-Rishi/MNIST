@@ -10,7 +10,10 @@ num_workers = 0
 batch_size = 20
 valid_size = 0.2
 #convert to float tensor
-transform = transforms.ToTensor()
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
 # choose the training and test datasets
 train_data = datasets.MNIST(root='data', train=True,
                                    download=True, transform=transform)
@@ -42,48 +45,37 @@ images, labels = next(dataiter)
 images_tensor = images
 images = images.numpy()
 
-# defining the class and layers; one input layer, 2 hidden layers, an output layer, and a dropout layer do prevent dependency on the previous layer
+# defining the class and layers; conv layers extract features, linear layers classify, dropout prevents overfitting
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        hidden_1 = 1024
-        hidden_2 = 1024
-        hidden_3 = 1024
-        self.fc1 = nn.Linear(28 * 28, hidden_1)
-        self.fc2 = nn.Linear(hidden_1, hidden_2)
-        self.fc3 = nn.Linear(hidden_2, hidden_3)
-        self.fc4 = nn.Linear(hidden_2, 10)
-        self.dropout = nn.Dropout(0.5)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool2d(2)
+        self.fc1 = nn.Linear(64 * 7 * 7, 128)
+        self.fc4 = nn.Linear(128, 10)
+        self.dropout = nn.Dropout(0.3)
 
     # forward probagation
     def forward(self, x):
-        # flatten image input
-        x = x.view(-1, 28 * 28)
-        # add hidden layer, with relu activation function
+        x = F.relu(self.conv1(x))
+        x = self.pool(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool(x)
+        x = x.view(-1, 64 * 7 * 7)
         x = F.relu(self.fc1(x))
-        # add dropout layer
         x = self.dropout(x)
-        # add hidden layer, with relu activation function
-        x = F.relu(self.fc2(x))
-        # add dropout layer
-
-        x = self.dropout(x)
-
-        x = F.relu(self.fc3(x))
-
-        x = self.dropout(x)
-        # add output layer
         x = self.fc4(x)
         return x
-        
-# initialize the NN
+
+    # initialize the NN
 model = Net()
 print(model)
 
 # set up loss and optimizer functions, as well as initializing the number of epochs and another var
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-n_epochs = 20
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+n_epochs = 16
 valid_loss_min = np.inf
 
 for epoch in range(n_epochs):
