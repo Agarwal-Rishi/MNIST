@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 # Define the number of subprocesses to use for data loading, the batch size, and validation size
 num_workers = 0
-batch_size = 20
+batch_size = 128
 valid_size = 0.2
 #convert to float tensor
 transform = transforms.Compose([
@@ -15,9 +15,9 @@ transform = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))
 ])
 # choose the training and test datasets
-train_data = datasets.MNIST(root='data', train=True,
+train_data = datasets.FashionMNIST(root='data', train=True,
                                    download=True, transform=transform)
-test_data = datasets.MNIST(root='data', train=False,
+test_data = datasets.FashionMNIST(root='data', train=False,
                                   download=True, transform=transform)
 print (train_data)
 
@@ -49,20 +49,31 @@ images = images.numpy()
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.pool = nn.MaxPool2d(2)
-        self.fc1 = nn.Linear(64 * 7 * 7, 128)
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 96, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(96),
+            nn.Conv2d(96, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.BatchNorm2d(128),
+        )
+        
+        self.fc1 = nn.Linear(128 * 7 * 7, 128)
         self.fc4 = nn.Linear(128, 10)
         self.dropout = nn.Dropout(0.3)
 
     # forward probagation
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = self.pool(x)
-        x = F.relu(self.conv2(x))
-        x = self.pool(x)
-        x = x.view(-1, 64 * 7 * 7)
+        x = self.features(x)
+        x = x.view(-1, 128 * 7 * 7)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc4(x)
@@ -74,8 +85,8 @@ print(model)
 
 # set up loss and optimizer functions, as well as initializing the number of epochs and another var
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-n_epochs = 16
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0015)
+n_epochs = 20
 valid_loss_min = np.inf
 
 for epoch in range(n_epochs):
@@ -116,7 +127,6 @@ for epoch in range(n_epochs):
 # MODEL TESTING
 model.eval()
 test_loss = 0
-test_loss = test_loss/len(test_loader.sampler)
 class_correct = {i: 0 for i in range(10)}
 class_total = {i: 0 for i in range(10)}
 # for our x's and y's in the test set, do this stuff
@@ -129,8 +139,6 @@ for data, target in test_loader:
     test_loss += loss.item()*data.size(0)
     _, pred = torch.max(output, 1)
     correct = np.squeeze(pred.eq(target.data.view_as(pred)))
-
-
 
     for i in range(len(target)):
         label = target.data[i].item()
